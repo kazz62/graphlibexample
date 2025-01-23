@@ -5,10 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -21,13 +21,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.kazz.graphlibexamples.ui.theme.GraphLibExamplesTheme
-import kotlin.math.pow
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +49,17 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             ) { innerPadding ->
+                val revenueDataSmall = listOf(
+                    45f,  // GMV Y
+                    47650f,  // GMV Y-1
+                )
+
+                val month = listOf(
+                    "GMV Y",
+                    "GMV Y-1"
+                )
+
+                val title: String = "Where am I? Day"
 //                Column(
 //                    modifier = Modifier
 //                        .padding(innerPadding)
@@ -86,7 +98,13 @@ class MainActivity : ComponentActivity() {
 //                }
 //                SimpleBarChart(revenueData)
 //                HorizontalBarChart(revenueDataSmall)
-                EnhancedBarChart(revenueDataSmall, month, modifier = Modifier.padding(innerPadding))
+                EnhancedBarChart(
+                    revenueDataSmall,
+                    month,
+                    title,
+                    39888f,
+                    modifier = Modifier.padding(innerPadding)
+                )
             }
         }
     }
@@ -132,110 +150,137 @@ fun HorizontalBarChart(data: List<Float>) {
     }
 }
 
+/**
+ * Horizontal Bar Chart used to reproduce the old Perfeco horizontal charts.
+ * This composable is still a WIP and needs to be finished, documented and refacto.
+ */
 @Composable
 fun EnhancedBarChart(
     data: List<Float>,
-    month: List<String>,
-    title: String = "Revenus Mensuels",
+    year: List<String>,
+    title: String,
+    goal: Float,
     modifier: Modifier,
 ) {
+    val blue = Color(0xFF64B5F6)
+    val lightBlue = Color(0xFF1976D2)
     Column(
         modifier = modifier
             .fillMaxWidth()
     ) {
-        Box(
-            modifier = modifier.fillMaxSize()
+        Text(
+            text = title,
+            color = lightBlue
+        )
+        val textMeasurer = rememberTextMeasurer()
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+                .padding(8.dp)
         ) {
-            Text(
-                text = title,
-            )
-            val textMeasurer = rememberTextMeasurer()
-            val max = month.maxBy { it.length }
+            val tickWidth = 2f
+            val tickHeight = 185f
+
+            val max = year.maxBy { it.length }
             val textLayoutResult = textMeasurer.measure(text = AnnotatedString(max))
             val textSize = textLayoutResult.size
 
-            Canvas(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                val barHeight = size.height / (month.size * 10)
-                val maxValue = data.maxOrNull() ?: Float.NaN
+            val barHeight = tickHeight / 3
+            val maxValue = data.maxOrNull() ?: Float.NaN
 
-                val step = 10.0.pow((maxValue.toInt().toString().length - 1).toDouble())
-                val numTicks = (maxValue / step).toInt()
-                val tickWidth = (size.width) / (numTicks + 1)
-                val tickValue = maxValue / numTicks
+            val numTicks = 4
+            val tickGap = (size.width - textSize.width) / numTicks
+            val tickValue = maxValue / numTicks
 
-                data.forEachIndexed { index, value ->
-                    val barWidth = (value / maxValue) * (size.width - textSize.width) //- 200f
-                    val color = if (index == 0) Color(0xFF64B5F6) else Color(0xFF1976D2)
+            val symbol = "€"
 
-                    drawText(
-                        textMeasurer,
-                        month[index],
-                        topLeft = Offset(
-                            x = 0f,
-                            y = index * barHeight * 2 + barHeight
-                        )
+            data.forEachIndexed { index, value ->
+                val barWidth = (value / maxValue) * (size.width - textSize.width)
+                val color = if (index == 0) blue else lightBlue
+
+                println("Canvas width: ${size.width}, Bar width: $barWidth, Max value: $maxValue")
+
+                drawText(
+                    textMeasurer,
+                    year[index],
+                    topLeft = Offset(
+                        x = 0f,
+                        y = index * barHeight * 2 + barHeight
                     )
+                )
 
-                    drawRect(
-                        color = color,
-                        topLeft = Offset(
-                            x = 5f + textSize.width,
-                            y = index * barHeight * 2 + barHeight
-                        ),
-                        size = Size(barWidth, barHeight)
-                    )
-                }
-
-                for (i in 0..numTicks) {
-                    println("i : $i")
-                    val leg = convertToK(tickValue.toInt() * i)
-                    drawText(
-                        textMeasurer,
-                        leg,
-                        topLeft = Offset(
-                            x = textSize.width + (tickWidth * i) -
-                                    (textMeasurer.measure(
-                                        text = AnnotatedString(
-                                            leg
-                                        )
-                                    ).size.width),
-                            y = barHeight - textSize.height,
-                        )
-                    )
-
-                    drawRect(
-                        color = Color.Gray,
-                        topLeft = Offset(
-                            x = textSize.width + (tickWidth * i),
-                            y = barHeight
-                        ),
-                        size = Size(width = 4f, height = 185f)
-                    )
-                }
+                drawRect(
+                    color = color,
+                    topLeft = Offset(
+                        x = tickWidth + textSize.width.toFloat(),
+                        y = index * barHeight * 2 + barHeight
+                    ),
+                    size = Size(barWidth, barHeight)
+                )
             }
+
+            for (i in 0..numTicks) {
+                println("i : $i")
+                val leg = convertToK(tickValue.toInt() * i, symbol)
+                drawText(
+                    textMeasurer,
+                    leg,
+                    topLeft = Offset(
+                        x = textSize.width + (tickGap * i) -
+                                (textMeasurer.measure(
+                                    text = AnnotatedString(
+                                        leg
+                                    )
+                                ).size.width),
+                        y = barHeight - textSize.height,
+                    )
+                )
+
+                drawRect(
+                    color = Color.Gray,
+                    topLeft = Offset(
+                        x = textSize.width + (tickGap * i),
+                        y = barHeight
+                    ),
+                    size = Size(width = tickWidth, height = tickHeight)
+                )
+            }
+
+            val goalGap = (goal / maxValue) * (size.width - textSize.width)
+            drawLine(
+                color = Color.Green,
+                start = Offset(
+                    x = textSize.width + goalGap,
+                    y = barHeight
+                ),
+                end = Offset(
+                    x = textSize.width + goalGap,
+                    y = tickHeight + barHeight
+                ),
+                strokeWidth = 4f,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+            )
+
+            val goalK = convertToK(goal.toInt(), symbol = symbol)
+            drawText(
+                textMeasurer,
+                goalK,
+                topLeft = Offset(
+                    x = textSize.width + goalGap + tickWidth,
+                    y = barHeight + textSize.height,
+                ),
+                style = TextStyle(Color.Green),
+            )
         }
     }
 }
 
-fun convertToK(nb: Int): String {
+fun convertToK(nb: Int, symbol: String): String {
     return if (nb >= 1000) {
-        "€${nb / 1000}K"
-    } else "€$nb"
+        "$symbol${nb / 1000}K"
+    } else "$symbol$nb"
 }
-
-val revenueDataSmall = listOf(
-    45f,  // GMV Y
-    62000f,  // GMV Y-1
-)
-
-val month = listOf(
-    "GMV Y",
-    "GMV Y-1"
-)
 
 @Preview(showBackground = true)
 @Composable
